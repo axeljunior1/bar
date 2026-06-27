@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
+import { redirect } from "next/navigation";
 
-export default function ProduitsPage() {
-  return (
-    <PlaceholderPage
-      title="Produits"
-      message="Gestion des produits — prochaine étape de développement."
-    />
-  );
+export default function ParametresProduitsRedirectPage() {
+  redirect("/produits");
 }

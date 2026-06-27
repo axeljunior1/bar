@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types/database";
+import {
+  computePackagingPrice,
+  formatCurrency,
+} from "@/lib/utils/money";
+
+export { computePackagingPrice, formatCurrency };
 
 export type SessionContext = {
   userId: string;
@@ -34,19 +40,4 @@ export async function getSessionContext(): Promise<SessionContext | null> {
 
 export function isOwner(profile: Profile): boolean {
   return profile.role === "owner";
-}
-
-export function formatCurrency(amount: number, currency = "EUR"): string {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency,
-  }).format(amount);
-}
-
-export function computePackagingPrice(
-  unitPrice: number,
-  quantity: number,
-  optionalPrice: number | null,
-): number {
-  return optionalPrice ?? unitPrice * quantity;
 }

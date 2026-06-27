@@ -1,22 +1,17 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/layout/AppShell";
-import { getSessionContext, isOwner } from "@/lib/auth/session";
+import { requireOwnerPage } from "@/lib/auth/require-owner";
 
 const settingsLinks = [
   { href: "/parametres/categories", label: "Catégories", icon: "🏷️" },
   { href: "/parametres/conditionnements", label: "Conditionnements", icon: "📦" },
   { href: "/parametres/paiements", label: "Moyens de paiement", icon: "💳" },
-  { href: "/parametres/produits", label: "Produits", icon: "🍻" },
+  { href: "/produits", label: "Produits", icon: "🍻" },
 ];
 
 export default async function ParametresPage() {
-  const session = await getSessionContext();
-
-  if (!session || !isOwner(session.profile)) {
-    redirect("/");
-  }
+  await requireOwnerPage();
 
   return (
     <AppShell title="Réglages">
