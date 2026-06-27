@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { computePackagingPrice } from "@/lib/utils/money";
+import { getPackagingSellPrice } from "@/lib/products/pricing";
 import type {
   PaymentMethodOption,
   SellableCategory,
   SellableProduct,
+  SellableVariant,
   SlateLineItem,
 } from "@/components/slates/types";
 
@@ -15,6 +16,7 @@ export async function loadSellableCatalog(barId: string) {
     { data: products },
     { data: packagings },
     { data: packagingTypes },
+    { data: variants },
   ] = await Promise.all([
     supabase
       .from("categories")
@@ -38,11 +40,38 @@ export async function loadSellableCatalog(barId: string) {
       .select("id, name")
       .eq("bar_id", barId)
       .eq("actif", true),
+    supabase
+      .from("product_variants")
+      .select("id, product_id, size, color, unit_price, sort_order, actif")
+      .eq("bar_id", barId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
 
   const packagingTypeById = new Map(
     packagingTypes?.map((type) => [type.id, type.name]) ?? [],
   );
+
+  const variantsByProduct = new Map<string, SellableVariant[]>();
+  const productsWithVariants = new Set<string>();
+
+  variants?.forEach((variant) => {
+    productsWithVariants.add(variant.product_id);
+
+    if (!variant.actif) {
+      return;
+    }
+
+    const current = variantsByProduct.get(variant.product_id) ?? [];
+    current.push({
+      id: variant.id,
+      size: variant.size,
+      color: variant.color,
+      unitPrice:
+        variant.unit_price === null ? null : Number(variant.unit_price),
+    });
+    variantsByProduct.set(variant.product_id, current);
+  });
 
   const packagingsByProduct = new Map<string, SellableProduct["packagings"]>();
 
@@ -52,32 +81,39 @@ export async function loadSellableCatalog(barId: string) {
       return;
     }
 
-    const typeName = packagingTypeById.get(packaging.packaging_type_id) ?? "—";
-    const price = computePackagingPrice(
-      Number(product.unit_price),
-      Number(packaging.quantity),
-      packaging.optional_price === null
-        ? null
-        : Number(packaging.optional_price),
-    );
-
     const current = packagingsByProduct.get(packaging.product_id) ?? [];
     current.push({
       id: packaging.id,
-      typeName,
+      typeName: packagingTypeById.get(packaging.packaging_type_id) ?? "—",
       quantity: Number(packaging.quantity),
-      price,
+      optionalPrice:
+        packaging.optional_price === null
+          ? null
+          : Number(packaging.optional_price),
     });
     packagingsByProduct.set(packaging.product_id, current);
   });
 
   const sellableProducts: SellableProduct[] =
     products
-      ?.filter((product) => (packagingsByProduct.get(product.id)?.length ?? 0) > 0)
+      ?.filter((product) => {
+        const productPackagings = packagingsByProduct.get(product.id) ?? [];
+        if (!productPackagings.length) {
+          return false;
+        }
+
+        if (productsWithVariants.has(product.id)) {
+          return (variantsByProduct.get(product.id)?.length ?? 0) > 0;
+        }
+
+        return true;
+      })
       .map((product) => ({
         id: product.id,
         name: product.name,
         categoryId: product.category_id,
+        unitPrice: Number(product.unit_price),
+        variants: variantsByProduct.get(product.id) ?? [],
         packagings: packagingsByProduct.get(product.id) ?? [],
       })) ?? [];
 
@@ -123,7 +159,7 @@ export async function loadSlateLines(
   const { data } = await supabase
     .from("slate_lines")
     .select(
-      "id, product_name, packaging_name, quantity, unit_price, line_total",
+      "id, product_packaging_id, product_variant_id, product_name, variant_size_snapshot, variant_color_snapshot, packaging_name, quantity, unit_price, line_total",
     )
     .eq("slate_id", slateId)
     .eq("bar_id", barId)
@@ -132,7 +168,11 @@ export async function loadSlateLines(
   return (
     data?.map((line) => ({
       id: line.id,
+      productPackagingId: line.product_packaging_id,
+      productVariantId: line.product_variant_id,
       productName: line.product_name,
+      variantSize: line.variant_size_snapshot,
+      variantColor: line.variant_color_snapshot,
       packagingName: line.packaging_name,
       quantity: line.quantity,
       unitPrice: Number(line.unit_price),
@@ -140,3 +180,5 @@ export async function loadSlateLines(
     })) ?? []
   );
 }
+
+export { getPackagingSellPrice };

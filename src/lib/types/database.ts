@@ -211,6 +211,45 @@ export interface Database {
         };
         Relationships: [];
       };
+      product_variants: {
+        Row: {
+          id: string;
+          bar_id: string;
+          product_id: string;
+          size: string | null;
+          color: string | null;
+          unit_price: number | null;
+          sort_order: number;
+          actif: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          bar_id: string;
+          product_id: string;
+          size?: string | null;
+          color?: string | null;
+          unit_price?: number | null;
+          sort_order?: number;
+          actif?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          bar_id?: string;
+          product_id?: string;
+          size?: string | null;
+          color?: string | null;
+          unit_price?: number | null;
+          sort_order?: number;
+          actif?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       product_packagings: {
         Row: {
           id: string;
@@ -299,6 +338,8 @@ export interface Database {
           location_snapshot: string | null;
           note_snapshot: string | null;
           product_name_snapshot: string;
+          variant_size_snapshot: string | null;
+          variant_color_snapshot: string | null;
           packaging_name_snapshot: string | null;
           quantity: number;
           status: string;
@@ -344,7 +385,10 @@ export interface Database {
           slate_id: string;
           product_id: string;
           product_packaging_id: string;
+          product_variant_id: string | null;
           product_name: string;
+          variant_size_snapshot: string | null;
+          variant_color_snapshot: string | null;
           packaging_name: string;
           quantity: number;
           unit_price: number;
@@ -357,7 +401,10 @@ export interface Database {
           slate_id: string;
           product_id: string;
           product_packaging_id: string;
+          product_variant_id: string | null;
           product_name: string;
+          variant_size_snapshot: string | null;
+          variant_color_snapshot: string | null;
           packaging_name: string;
           quantity: number;
           unit_price: number;
@@ -415,6 +462,8 @@ export interface Database {
           bar_id: string;
           sale_id: string;
           product_name: string;
+          variant_size_snapshot: string | null;
+          variant_color_snapshot: string | null;
           packaging_name: string;
           quantity: number;
           unit_price: number;
@@ -425,6 +474,8 @@ export interface Database {
           bar_id: string;
           sale_id: string;
           product_name: string;
+          variant_size_snapshot?: string | null;
+          variant_color_snapshot?: string | null;
           packaging_name: string;
           quantity: number;
           unit_price: number;
@@ -482,6 +533,39 @@ export interface Database {
           p_created_by: string | null;
         };
         Returns: string;
+      };
+      add_slate_line: {
+        Args: {
+          p_slate_id: string;
+          p_product_packaging_id: string;
+          p_quantity?: number;
+          p_line_total?: number | null;
+          p_product_variant_id?: string | null;
+        };
+        Returns: Json;
+      };
+      update_slate_line_line_total: {
+        Args: {
+          p_slate_id: string;
+          p_line_id: string;
+          p_line_total?: number | null;
+        };
+        Returns: Json;
+      };
+      update_slate_line_quantity: {
+        Args: {
+          p_slate_id: string;
+          p_line_id: string;
+          p_quantity: number;
+        };
+        Returns: Json;
+      };
+      delete_slate_line: {
+        Args: {
+          p_slate_id: string;
+          p_line_id: string;
+        };
+        Returns: Json;
       };
     };
     Enums: {

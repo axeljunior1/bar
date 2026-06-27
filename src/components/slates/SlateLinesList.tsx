@@ -1,75 +1,128 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState } from "react";
 
-import {
-  removeSlateLine,
-  updateSlateLineQuantity,
-} from "@/lib/actions/slates";
 import type { SlateLineItem } from "@/components/slates/types";
+import { SlateLinePriceModal } from "@/components/slates/SlateLinePriceModal";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  formatVariantLabel,
+  getSlateLinePrimaryLabel,
+  getSlateLineSecondaryLabel,
+} from "@/lib/products/variant-display";
 import { formatCurrency } from "@/lib/utils/money";
 
+type MutationResult = {
+  success: boolean;
+  error?: string;
+};
+
 type SlateLinesListProps = {
-  slateId: string;
   lines: SlateLineItem[];
   readOnly?: boolean;
+  getCatalogLineTotal?: (line: SlateLineItem) => number | null;
+  onQuantityChange?: (
+    lineId: string,
+    quantity: number,
+  ) => Promise<MutationResult>;
+  onLineTotalChange?: (
+    lineId: string,
+    lineTotal: number | null,
+  ) => Promise<MutationResult>;
+  onRemove?: (lineId: string) => Promise<MutationResult>;
 };
 
 const MAX_LINE_QUANTITY = 99;
 
 export function SlateLinesList({
-  slateId,
   lines,
   readOnly = false,
+  getCatalogLineTotal,
+  onQuantityChange,
+  onLineTotalChange,
+  onRemove,
 }: SlateLinesListProps) {
   const [error, setError] = useState<string | null>(null);
   const [pendingLine, setPendingLine] = useState<SlateLineItem | null>(null);
-  const [updatingLineId, setUpdatingLineId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [priceLine, setPriceLine] = useState<SlateLineItem | null>(null);
+  const [pendingLineIds, setPendingLineIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
-  function handleQuantityChange(line: SlateLineItem, nextQuantity: number) {
-    if (nextQuantity < 1 || nextQuantity > MAX_LINE_QUANTITY) {
+  const markPending = useCallback((lineId: string, pending: boolean) => {
+    setPendingLineIds((current) => {
+      const next = new Set(current);
+      if (pending) {
+        next.add(lineId);
+      } else {
+        next.delete(lineId);
+      }
+      return next;
+    });
+  }, []);
+
+  async function handleQuantityChange(line: SlateLineItem, nextQuantity: number) {
+    if (
+      readOnly ||
+      !onQuantityChange ||
+      nextQuantity < 1 ||
+      nextQuantity > MAX_LINE_QUANTITY ||
+      pendingLineIds.has(line.id)
+    ) {
       return;
     }
 
-    setUpdatingLineId(line.id);
+    markPending(line.id, true);
+    setError(null);
 
-    startTransition(async () => {
-      const result = await updateSlateLineQuantity(
-        slateId,
-        line.id,
-        nextQuantity,
-      );
+    const result = await onQuantityChange(line.id, nextQuantity);
 
-      setUpdatingLineId(null);
+    markPending(line.id, false);
 
-      if (!result.success) {
-        setError(result.error ?? "Impossible de modifier la quantité.");
-        return;
-      }
-
-      setError(null);
-    });
+    if (!result.success) {
+      setError(result.error ?? "Impossible de modifier la quantité.");
+    }
   }
 
-  function handleRemoveConfirm() {
-    if (!pendingLine) {
+  async function handleLineTotalConfirm(lineTotal: number | null) {
+    if (!priceLine || !onLineTotalChange || pendingLineIds.has(priceLine.id)) {
       return;
     }
 
-    startTransition(async () => {
-      const result = await removeSlateLine(slateId, pendingLine.id);
+    markPending(priceLine.id, true);
+    setError(null);
 
-      if (!result.success) {
-        setError(result.error ?? "Impossible de supprimer la ligne.");
-        return;
-      }
+    const result = await onLineTotalChange(priceLine.id, lineTotal);
 
-      setError(null);
-      setPendingLine(null);
-    });
+    markPending(priceLine.id, false);
+
+    if (!result.success) {
+      setError(result.error ?? "Impossible de modifier le prix.");
+      return;
+    }
+
+    setPriceLine(null);
+  }
+
+  async function handleRemoveConfirm() {
+    if (!pendingLine || !onRemove || pendingLineIds.has(pendingLine.id)) {
+      return;
+    }
+
+    markPending(pendingLine.id, true);
+    setError(null);
+
+    const result = await onRemove(pendingLine.id);
+
+    markPending(pendingLine.id, false);
+
+    if (!result.success) {
+      setError(result.error ?? "Impossible de supprimer la ligne.");
+      return;
+    }
+
+    setPendingLine(null);
   }
 
   if (!lines.length) {
@@ -90,7 +143,16 @@ export function SlateLinesList({
 
       <ul className="space-y-3">
         {lines.map((line) => {
-          const isUpdating = isPending && updatingLineId === line.id;
+          const isUpdating = pendingLineIds.has(line.id);
+          const catalogLineTotal = getCatalogLineTotal?.(line) ?? null;
+          const isCustomPrice =
+            catalogLineTotal !== null &&
+            Math.abs(line.lineTotal - catalogLineTotal) > 0.001;
+          const primaryLabel = getSlateLinePrimaryLabel(line);
+          const secondaryLabel = getSlateLineSecondaryLabel(line);
+          const hasVariant = Boolean(
+            formatVariantLabel(line.variantSize, line.variantColor),
+          );
 
           return (
             <li
@@ -99,14 +161,18 @@ export function SlateLinesList({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold">{line.productName}</p>
-                  <p className="text-sm text-muted">{line.packagingName}</p>
+                  <p className="font-semibold">{primaryLabel}</p>
+                  <p className="text-sm text-muted">{secondaryLabel}</p>
+                  {hasVariant ? (
+                    <p className="text-sm text-muted">{line.packagingName}</p>
+                  ) : null}
                   <p className="mt-1 text-sm text-muted">
-                    {formatCurrency(line.unitPrice)} / {line.packagingName}
+                    {line.quantity} × {formatCurrency(line.unitPrice)} /{" "}
+                    {line.packagingName}
                   </p>
 
                   {!readOnly ? (
-                    <div className="mt-3 flex items-center gap-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
                       <span className="text-sm text-muted">Qté</span>
                       <div className="flex items-center gap-2">
                         <Button
@@ -118,7 +184,7 @@ export function SlateLinesList({
                           onClick={() =>
                             handleQuantityChange(line, line.quantity - 1)
                           }
-                          disabled={isPending || line.quantity <= 1}
+                          disabled={isUpdating || line.quantity <= 1}
                           aria-label={`Diminuer la quantité de ${line.productName}`}
                         >
                           −
@@ -127,7 +193,7 @@ export function SlateLinesList({
                           className="min-w-10 text-center text-lg font-semibold"
                           aria-live="polite"
                         >
-                          {isUpdating ? "…" : line.quantity}
+                          {line.quantity}
                         </span>
                         <Button
                           type="button"
@@ -139,13 +205,26 @@ export function SlateLinesList({
                             handleQuantityChange(line, line.quantity + 1)
                           }
                           disabled={
-                            isPending || line.quantity >= MAX_LINE_QUANTITY
+                            isUpdating || line.quantity >= MAX_LINE_QUANTITY
                           }
                           aria-label={`Augmenter la quantité de ${line.productName}`}
                         >
                           +
                         </Button>
                       </div>
+                      {onLineTotalChange ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="md"
+                          fullWidth={false}
+                          className="min-h-11 px-3"
+                          onClick={() => setPriceLine(line)}
+                          disabled={isUpdating}
+                        >
+                          Prix
+                        </Button>
+                      ) : null}
                     </div>
                   ) : (
                     <p className="mt-2 text-sm text-muted">
@@ -157,6 +236,11 @@ export function SlateLinesList({
                 <div className="shrink-0 text-right">
                   <p className="text-lg font-bold text-brand-700">
                     {formatCurrency(line.lineTotal)}
+                    {isCustomPrice ? (
+                      <span className="ml-2 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        Prix forcé
+                      </span>
+                    ) : null}
                   </p>
                   {!readOnly ? (
                     <Button
@@ -166,7 +250,7 @@ export function SlateLinesList({
                       fullWidth={false}
                       className="mt-1 min-w-0 px-2"
                       onClick={() => setPendingLine(line)}
-                      disabled={isPending}
+                      disabled={isUpdating}
                     >
                       Retirer
                     </Button>
@@ -177,6 +261,20 @@ export function SlateLinesList({
           );
         })}
       </ul>
+
+      {priceLine ? (
+        <SlateLinePriceModal
+          key={priceLine.id}
+          open
+          line={priceLine}
+          catalogLineTotal={
+            getCatalogLineTotal?.(priceLine) ?? null
+          }
+          onConfirm={handleLineTotalConfirm}
+          onCancel={() => setPriceLine(null)}
+          pending={pendingLineIds.has(priceLine.id)}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={!!pendingLine}
@@ -189,7 +287,7 @@ export function SlateLinesList({
         confirmLabel="Retirer"
         onConfirm={handleRemoveConfirm}
         onCancel={() => setPendingLine(null)}
-        pending={isPending}
+        pending={pendingLine ? pendingLineIds.has(pendingLine.id) : false}
       />
     </>
   );

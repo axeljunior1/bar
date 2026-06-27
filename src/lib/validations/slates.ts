@@ -43,6 +43,12 @@ export const productPackagingIdSchema = z
   .string()
   .uuid("Conditionnement invalide.");
 
+export const productVariantIdSchema = z
+  .string()
+  .uuid("Variante invalide.")
+  .nullable()
+  .optional();
+
 export const paymentMethodIdSchema = z
   .string()
   .uuid("Moyen de paiement invalide.");
@@ -52,3 +58,10 @@ export const lineQuantitySchema = z.coerce
   .int("Quantité entière requise.")
   .min(1, "Quantité minimale : 1.")
   .max(99, "Quantité maximale : 99.");
+
+export const lineUnitPriceSchema = z.coerce
+  .number({ message: "Prix invalide." })
+  .min(0, "Le prix doit être positif ou nul.")
+  .max(9999.99, "Prix trop élevé.");
+
+export const lineLineTotalSchema = lineUnitPriceSchema;

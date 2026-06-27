@@ -1,4 +1,8 @@
 import type { KitchenServedItem } from "@/lib/kitchen/queries";
+import {
+  formatVariantLabel,
+  getKitchenItemPrimaryLabel,
+} from "@/lib/products/variant-display";
 import { formatTimeFr } from "@/lib/sales/period";
 
 type KitchenServedHistoryProps = {
@@ -29,9 +33,12 @@ export function KitchenServedHistory({ items }: KitchenServedHistoryProps) {
                   <p className="truncate font-medium">{item.clientName}</p>
                   <p className="truncate text-sm text-muted">
                     {item.quantity > 1 ? `${item.quantity} × ` : ""}
-                    {item.productName}
+                    {getKitchenItemPrimaryLabel(item)}
                     {item.packagingName ? ` · ${item.packagingName}` : ""}
                   </p>
+                  {formatVariantLabel(item.variantSize, item.variantColor) ? (
+                    <p className="truncate text-xs text-muted">{item.productName}</p>
+                  ) : null}
                   {item.location ? (
                     <p className="truncate text-xs text-muted">{item.location}</p>
                   ) : null}

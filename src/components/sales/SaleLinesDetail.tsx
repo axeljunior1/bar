@@ -1,4 +1,9 @@
 import type { SaleDetail } from "@/lib/sales/queries";
+import {
+  formatVariantLabel,
+  getSlateLinePrimaryLabel,
+  getSlateLineSecondaryLabel,
+} from "@/lib/products/variant-display";
 import { formatCurrency } from "@/lib/utils/money";
 
 type SaleLinesDetailProps = {
@@ -16,15 +21,25 @@ export function SaleLinesDetail({ lines }: SaleLinesDetailProps) {
 
   return (
     <ul className="space-y-3">
-      {lines.map((line) => (
+      {lines.map((line) => {
+        const hasVariant = Boolean(
+          formatVariantLabel(line.variantSize, line.variantColor),
+        );
+
+        return (
         <li
           key={line.id}
           className="rounded-3xl border border-border bg-white p-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-semibold">{line.productName}</p>
-              <p className="text-sm text-muted">{line.packagingName}</p>
+              <p className="font-semibold">{getSlateLinePrimaryLabel(line)}</p>
+              <p className="text-sm text-muted">
+                {getSlateLineSecondaryLabel(line)}
+              </p>
+              {hasVariant ? (
+                <p className="text-sm text-muted">{line.packagingName}</p>
+              ) : null}
               <p className="mt-1 text-sm text-muted">
                 {line.quantity} × {formatCurrency(line.unitPrice)}
               </p>
@@ -34,7 +49,8 @@ export function SaleLinesDetail({ lines }: SaleLinesDetailProps) {
             </p>
           </div>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

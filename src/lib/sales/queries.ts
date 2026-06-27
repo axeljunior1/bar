@@ -159,6 +159,8 @@ export type SaleDetail = {
   lines: Array<{
     id: string;
     productName: string;
+    variantSize: string | null;
+    variantColor: string | null;
     packagingName: string;
     quantity: number;
     unitPrice: number;
@@ -188,7 +190,7 @@ export async function loadSaleDetail(
       supabase
         .from("sale_lines")
         .select(
-          "id, product_name, packaging_name, quantity, unit_price, line_total",
+          "id, product_name, variant_size_snapshot, variant_color_snapshot, packaging_name, quantity, unit_price, line_total",
         )
         .eq("sale_id", saleId)
         .eq("bar_id", barId)
@@ -231,6 +233,8 @@ export async function loadSaleDetail(
       lines?.map((line) => ({
         id: line.id,
         productName: line.product_name,
+        variantSize: line.variant_size_snapshot,
+        variantColor: line.variant_color_snapshot,
         packagingName: line.packaging_name,
         quantity: line.quantity,
         unitPrice: Number(line.unit_price),

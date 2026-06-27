@@ -6,6 +6,8 @@ export type KitchenQueueItem = {
   location: string | null;
   note: string | null;
   productName: string;
+  variantSize: string | null;
+  variantColor: string | null;
   packagingName: string | null;
   quantity: number;
   createdAt: string;
@@ -21,6 +23,8 @@ function mapKitchenRow(item: {
   location_snapshot: string | null;
   note_snapshot: string | null;
   product_name_snapshot: string;
+  variant_size_snapshot: string | null;
+  variant_color_snapshot: string | null;
   packaging_name_snapshot: string | null;
   quantity: number;
   created_at: string;
@@ -31,6 +35,8 @@ function mapKitchenRow(item: {
     location: item.location_snapshot,
     note: item.note_snapshot,
     productName: item.product_name_snapshot,
+    variantSize: item.variant_size_snapshot,
+    variantColor: item.variant_color_snapshot,
     packagingName: item.packaging_name_snapshot,
     quantity: Number(item.quantity),
     createdAt: item.created_at,
@@ -51,7 +57,7 @@ export async function loadPendingKitchenItems(
   const { data } = await supabase
     .from("kitchen_items")
     .select(
-      "id, client_name_snapshot, location_snapshot, note_snapshot, product_name_snapshot, packaging_name_snapshot, quantity, created_at",
+      "id, client_name_snapshot, location_snapshot, note_snapshot, product_name_snapshot, variant_size_snapshot, variant_color_snapshot, packaging_name_snapshot, quantity, created_at",
     )
     .eq("bar_id", barId)
     .eq("status", "pending")
@@ -62,39 +68,23 @@ export async function loadPendingKitchenItems(
 
 export async function loadServedKitchenItems(
   barId: string,
-  limit = 30,
 ): Promise<KitchenServedItem[]> {
   const supabase = await createClient();
 
   const { data } = await supabase
     .from("kitchen_items")
     .select(
-      "id, client_name_snapshot, location_snapshot, note_snapshot, product_name_snapshot, packaging_name_snapshot, quantity, created_at, served_at",
+      "id, client_name_snapshot, location_snapshot, note_snapshot, product_name_snapshot, variant_size_snapshot, variant_color_snapshot, packaging_name_snapshot, quantity, created_at, served_at",
     )
     .eq("bar_id", barId)
     .eq("status", "served")
     .gte("served_at", getTodayStartIso())
-    .order("served_at", { ascending: false })
-    .limit(limit);
+    .order("served_at", { ascending: false });
 
   return (
-    data
-      ?.filter((item) => item.served_at)
-      .map((item) => ({
-        ...mapKitchenRow(item),
-        servedAt: item.served_at as string,
-      })) ?? []
+    data?.map((item) => ({
+      ...mapKitchenRow(item),
+      servedAt: item.served_at ?? item.created_at,
+    })) ?? []
   );
-}
-
-export async function countPendingKitchenItems(barId: string): Promise<number> {
-  const supabase = await createClient();
-
-  const { count } = await supabase
-    .from("kitchen_items")
-    .select("*", { count: "exact", head: true })
-    .eq("bar_id", barId)
-    .eq("status", "pending");
-
-  return count ?? 0;
 }

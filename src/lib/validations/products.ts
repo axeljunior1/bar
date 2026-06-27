@@ -52,3 +52,39 @@ export const productKitchenSchema = z.preprocess(
   (value) => value === true || value === "true" || value === "on",
   z.boolean(),
 );
+
+export const productVariantIdSchema = z.string().uuid("Variante invalide.");
+
+export const variantSizeSchema = z
+  .string()
+  .trim()
+  .max(50, "50 caractères maximum.")
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  });
+
+export const variantColorSchema = z
+  .string()
+  .trim()
+  .max(50, "50 caractères maximum.")
+  .optional()
+  .transform((value) => {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : null;
+  });
+
+export const variantOptionalPriceSchema = z.preprocess(
+  (value) => {
+    if (value === "" || value === null || value === undefined) {
+      return null;
+    }
+
+    return value;
+  },
+  z
+    .coerce.number({ message: "Prix invalide." })
+    .min(0, "Le prix doit être positif ou nul.")
+    .nullable(),
+);

@@ -4,6 +4,10 @@ import { useState, useTransition } from "react";
 
 import { markKitchenItemServed } from "@/lib/actions/kitchen";
 import type { KitchenQueueItem } from "@/lib/kitchen/queries";
+import {
+  formatVariantLabel,
+  getKitchenItemPrimaryLabel,
+} from "@/lib/products/variant-display";
 import { formatTimeFr } from "@/lib/sales/period";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -75,8 +79,11 @@ export function KitchenQueue({ items }: KitchenQueueProps) {
             <div className="mb-4 rounded-2xl bg-surface-muted px-3 py-3">
               <p className="text-lg font-semibold">
                 {item.quantity > 1 ? `${item.quantity} × ` : ""}
-                {item.productName}
+                {getKitchenItemPrimaryLabel(item)}
               </p>
+              {formatVariantLabel(item.variantSize, item.variantColor) ? (
+                <p className="text-sm text-muted">{item.productName}</p>
+              ) : null}
               {item.packagingName ? (
                 <p className="text-sm text-muted">{item.packagingName}</p>
               ) : null}

@@ -14,8 +14,12 @@ import {
   productKitchenSchema,
   productIdSchema,
   productNameSchema,
+  productVariantIdSchema,
   quantitySchema,
   unitPriceSchema,
+  variantColorSchema,
+  variantOptionalPriceSchema,
+  variantSizeSchema,
 } from "@/lib/validations/products";
 
 export type ProductActionResult = {
@@ -41,6 +45,10 @@ function revalidateProductPaths(productId: string) {
 
 function mapDbError(error: { code?: string; message: string }): string {
   if (error.code === "23505") {
+    if (error.message.includes("product_variants")) {
+      return "Cette combinaison taille/couleur existe déjà.";
+    }
+
     return "Ce conditionnement existe déjà pour ce produit.";
   }
 
@@ -533,6 +541,183 @@ export async function deactivateProductPackaging(input: {
     .from("product_packagings")
     .update({ actif: false })
     .eq("id", parsedPackagingId.data)
+    .eq("product_id", parsedProductId.data)
+    .eq("bar_id", barId)
+    .eq("actif", true);
+
+  if (error) {
+    return { success: false, error: mapDbError(error) };
+  }
+
+  revalidateProductPaths(parsedProductId.data);
+  return { success: true };
+}
+
+export async function createProductVariant(input: {
+  productId: string;
+  size?: string | null;
+  color?: string | null;
+  unitPrice?: number | null;
+}): Promise<ProductActionResult> {
+  const auth = await requireOwnerAction();
+  if (!auth.ok) {
+    return { success: false, error: auth.error };
+  }
+
+  const parsedProductId = productIdSchema.safeParse(input.productId);
+  const parsedSize = variantSizeSchema.safeParse(input.size ?? "");
+  const parsedColor = variantColorSchema.safeParse(input.color ?? "");
+  const parsedUnitPrice = variantOptionalPriceSchema.safeParse(
+    input.unitPrice ?? "",
+  );
+
+  if (
+    !parsedProductId.success ||
+    !parsedSize.success ||
+    !parsedColor.success ||
+    !parsedUnitPrice.success
+  ) {
+    return { success: false, error: "Données invalides." };
+  }
+
+  if (!parsedSize.data && !parsedColor.data) {
+    return {
+      success: false,
+      error: "Indiquez au moins une taille ou une couleur.",
+    };
+  }
+
+  const barId = auth.session.profile.bar_id;
+  const owned = await ensureProductOwnership(parsedProductId.data, barId);
+
+  if (!owned) {
+    return { success: false, error: "Produit introuvable." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: lastVariant } = await supabase
+    .from("product_variants")
+    .select("sort_order")
+    .eq("product_id", parsedProductId.data)
+    .eq("bar_id", barId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from("product_variants").insert({
+    bar_id: barId,
+    product_id: parsedProductId.data,
+    size: parsedSize.data,
+    color: parsedColor.data,
+    unit_price: parsedUnitPrice.data,
+    sort_order: (lastVariant?.sort_order ?? 0) + 1,
+    actif: true,
+  });
+
+  if (error) {
+    return { success: false, error: mapDbError(error) };
+  }
+
+  revalidateProductPaths(parsedProductId.data);
+  return { success: true };
+}
+
+export async function updateProductVariant(input: {
+  variantId: string;
+  productId: string;
+  size?: string | null;
+  color?: string | null;
+  unitPrice?: number | null;
+}): Promise<ProductActionResult> {
+  const auth = await requireOwnerAction();
+  if (!auth.ok) {
+    return { success: false, error: auth.error };
+  }
+
+  const parsedVariantId = productVariantIdSchema.safeParse(input.variantId);
+  const parsedProductId = productIdSchema.safeParse(input.productId);
+  const parsedSize = variantSizeSchema.safeParse(input.size ?? "");
+  const parsedColor = variantColorSchema.safeParse(input.color ?? "");
+  const parsedUnitPrice = variantOptionalPriceSchema.safeParse(
+    input.unitPrice ?? "",
+  );
+
+  if (
+    !parsedVariantId.success ||
+    !parsedProductId.success ||
+    !parsedSize.success ||
+    !parsedColor.success ||
+    !parsedUnitPrice.success
+  ) {
+    return { success: false, error: "Données invalides." };
+  }
+
+  if (!parsedSize.data && !parsedColor.data) {
+    return {
+      success: false,
+      error: "Indiquez au moins une taille ou une couleur.",
+    };
+  }
+
+  const barId = auth.session.profile.bar_id;
+  const owned = await ensureProductOwnership(parsedProductId.data, barId);
+
+  if (!owned) {
+    return { success: false, error: "Produit introuvable." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("product_variants")
+    .update({
+      size: parsedSize.data,
+      color: parsedColor.data,
+      unit_price: parsedUnitPrice.data,
+    })
+    .eq("id", parsedVariantId.data)
+    .eq("product_id", parsedProductId.data)
+    .eq("bar_id", barId)
+    .eq("actif", true);
+
+  if (error) {
+    return { success: false, error: mapDbError(error) };
+  }
+
+  revalidateProductPaths(parsedProductId.data);
+  return { success: true };
+}
+
+export async function deactivateProductVariant(input: {
+  variantId: string;
+  productId: string;
+}): Promise<ProductActionResult> {
+  const auth = await requireOwnerAction();
+  if (!auth.ok) {
+    return { success: false, error: auth.error };
+  }
+
+  const parsedVariantId = productVariantIdSchema.safeParse(input.variantId);
+  const parsedProductId = productIdSchema.safeParse(input.productId);
+
+  if (!parsedVariantId.success || !parsedProductId.success) {
+    return { success: false, error: "Données invalides." };
+  }
+
+  const barId = auth.session.profile.bar_id;
+  const owned = await ensureProductOwnership(parsedProductId.data, barId);
+
+  if (!owned) {
+    return { success: false, error: "Produit introuvable." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("product_variants")
+    .update({ actif: false })
+    .eq("id", parsedVariantId.data)
     .eq("product_id", parsedProductId.data)
     .eq("bar_id", barId)
     .eq("actif", true);

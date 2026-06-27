@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { BackLink } from "@/components/layout/BackLink";
 import { EditProductForm } from "@/components/products/EditProductForm";
 import { ProductPackagingManager } from "@/components/products/ProductPackagingManager";
+import { ProductVariantManager } from "@/components/products/ProductVariantManager";
 import { requireOwnerPage } from "@/lib/auth/require-owner";
 import { formatCurrency } from "@/lib/utils/money";
 import { createClient } from "@/lib/supabase/server";
@@ -35,6 +36,7 @@ export default async function ProductDetailPage({
     { data: categories },
     { data: packagingTypes },
     { data: packagings },
+    { data: productVariants },
     { data: category },
   ] = await Promise.all([
     supabase
@@ -55,6 +57,14 @@ export default async function ProductDetailPage({
       .eq("product_id", id)
       .eq("bar_id", barId)
       .eq("actif", true)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("product_variants")
+      .select("id, size, color, unit_price, sort_order")
+      .eq("product_id", id)
+      .eq("bar_id", barId)
+      .eq("actif", true)
+      .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true }),
     supabase
       .from("categories")
@@ -79,6 +89,15 @@ export default async function ProductDetailPage({
         packaging.optional_price === null
           ? null
           : Number(packaging.optional_price),
+    })) ?? [];
+
+  const variantItems =
+    productVariants?.map((variant) => ({
+      id: variant.id,
+      size: variant.size,
+      color: variant.color,
+      unitPrice:
+        variant.unit_price === null ? null : Number(variant.unit_price),
     })) ?? [];
 
   return (
@@ -116,6 +135,12 @@ export default async function ProductDetailPage({
           categories={categories ?? []}
         />
       </div>
+
+      <ProductVariantManager
+        productId={product.id}
+        productUnitPrice={Number(product.unit_price)}
+        variants={variantItems}
+      />
 
       <ProductPackagingManager
         productId={product.id}

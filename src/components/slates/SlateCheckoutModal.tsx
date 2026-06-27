@@ -10,6 +10,9 @@ import type {
 } from "@/components/slates/types";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
+import {
+  getSlateLinePrimaryLabel,
+} from "@/lib/products/variant-display";
 import { formatCurrency } from "@/lib/utils/money";
 
 type SlateCheckoutModalProps = {
@@ -73,19 +76,23 @@ export function SlateCheckoutModal({
           <p className="mt-1 text-muted">{clientName}</p>
 
           <ul className="mt-4 space-y-2">
-            {lines.map((line) => (
+            {lines.map((line) => {
+              const primaryLabel = getSlateLinePrimaryLabel(line);
+
+              return (
               <li
                 key={line.id}
                 className="flex items-center justify-between gap-3 text-sm"
               >
                 <span className="min-w-0 truncate">
-                  {line.quantity}× {line.productName} · {line.packagingName}
+                  {line.quantity}× {primaryLabel} · {line.packagingName}
                 </span>
                 <span className="shrink-0 font-medium">
                   {formatCurrency(line.lineTotal)}
                 </span>
               </li>
-            ))}
+              );
+            })}
           </ul>
 
           <div className="mt-4 flex items-center justify-between border-t border-border pt-4">

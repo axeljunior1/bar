@@ -6,12 +6,18 @@ import { redirect } from "next/navigation";
 import { requireBarSession } from "@/lib/auth/require-bar-session";
 import { dismissPendingKitchenForSlate } from "@/lib/actions/kitchen";
 import { createClient } from "@/lib/supabase/server";
-import { computePackagingPrice } from "@/lib/utils/money";
+import {
+  mapRpcLineToItem,
+  type RpcLineMutationPayload,
+} from "@/lib/slates/line-mutations";
+import type { SlateLineItem } from "@/components/slates/types";
 import {
   clientNameSchema,
+  lineLineTotalSchema,
   lineQuantitySchema,
   paymentMethodIdSchema,
   productPackagingIdSchema,
+  productVariantIdSchema,
   slateIdSchema,
   slateLineIdSchema,
   slateLocationSchema,
@@ -23,6 +29,13 @@ export type SlateActionResult = {
   error?: string;
 };
 
+export type SlateLineMutationResult = SlateActionResult & {
+  line?: SlateLineItem;
+  slateTotal?: number;
+  deletedLineId?: string;
+  kitchenCreated?: boolean;
+};
+
 type SlateFormState = {
   error: string | null;
 };
@@ -31,21 +44,38 @@ function slateDetailPath(slateId: string) {
   return `/ardoises/${slateId}`;
 }
 
-function revalidateSlateDetailPaths(
-  slateId: string,
-  options?: { kitchen?: boolean },
-) {
+function revalidateSlateListPaths(options?: { kitchen?: boolean }) {
   revalidatePath("/");
-  revalidatePath(slateDetailPath(slateId));
 
   if (options?.kitchen) {
     revalidatePath("/cuisine");
   }
 }
 
+function revalidateSlateDetailPaths(slateId: string) {
+  revalidatePath(slateDetailPath(slateId));
+}
+
 function revalidateSlateCheckoutPaths(slateId: string) {
-  revalidateSlateDetailPaths(slateId, { kitchen: true });
+  revalidateSlateListPaths({ kitchen: true });
+  revalidatePath(slateDetailPath(slateId));
   revalidatePath("/ventes");
+}
+
+function parseLineMutationPayload(
+  data: unknown,
+): RpcLineMutationPayload | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  const payload = data as RpcLineMutationPayload;
+
+  if (typeof payload.slate_total !== "number") {
+    return null;
+  }
+
+  return payload;
 }
 
 type OpenSlate = {
@@ -78,32 +108,17 @@ async function getOpenSlate(
   return data;
 }
 
-async function createKitchenItemForLine(params: {
-  barId: string;
-  slate: OpenSlate;
-  slateLineId: string;
-  productName: string;
-  packagingName: string;
-  quantity: number;
-}) {
-  const supabase = await createClient();
-
-  await supabase.from("kitchen_items").insert({
-    bar_id: params.barId,
-    slate_id: params.slate.id,
-    slate_line_id: params.slateLineId,
-    client_name_snapshot: params.slate.client_name,
-    location_snapshot: params.slate.location,
-    note_snapshot: params.slate.note,
-    product_name_snapshot: params.productName,
-    packaging_name_snapshot: params.packagingName,
-    quantity: params.quantity,
-    status: "pending",
-  });
-}
-
 function mapDbError(error: { message: string }): string {
-  if (error.message.includes("Ardoise")) {
+  if (
+    error.message.includes("Ardoise") ||
+    error.message.includes("Conditionnement") ||
+    error.message.includes("Produit") ||
+    error.message.includes("Quantité") ||
+    error.message.includes("Prix") ||
+    error.message.includes("Variante") ||
+    error.message.includes("Ligne") ||
+    error.message.includes("Accès")
+  ) {
     return error.message;
   }
 
@@ -112,26 +127,6 @@ function mapDbError(error: { message: string }): string {
   }
 
   return "Une erreur est survenue. Réessayez.";
-}
-
-async function recalculateSlateTotal(slateId: string, barId: string) {
-  const supabase = await createClient();
-
-  const { data: lines } = await supabase
-    .from("slate_lines")
-    .select("line_total")
-    .eq("slate_id", slateId)
-    .eq("bar_id", barId);
-
-  const total =
-    lines?.reduce((sum, line) => sum + Number(line.line_total), 0) ?? 0;
-
-  await supabase
-    .from("slates")
-    .update({ total })
-    .eq("id", slateId)
-    .eq("bar_id", barId)
-    .eq("status", "open");
 }
 
 export async function createSlateAction(
@@ -248,150 +243,120 @@ export async function addSlateLine(
   slateId: string,
   productPackagingId: string,
   quantity = 1,
-): Promise<SlateActionResult> {
-  const session = await requireBarSession();
+  lineTotal?: number,
+  productVariantId?: string | null,
+): Promise<SlateLineMutationResult> {
+  await requireBarSession();
 
   const parsedSlateId = slateIdSchema.safeParse(slateId);
   const parsedPackagingId = productPackagingIdSchema.safeParse(productPackagingId);
   const parsedQuantity = lineQuantitySchema.safeParse(quantity);
+  const parsedLineTotal =
+    lineTotal === undefined
+      ? { success: true as const, data: undefined }
+      : lineLineTotalSchema.safeParse(lineTotal);
+  const parsedVariantId =
+    productVariantId === undefined
+      ? { success: true as const, data: null }
+      : productVariantId === null
+        ? { success: true as const, data: null }
+        : productVariantIdSchema.safeParse(productVariantId);
 
   if (
     !parsedSlateId.success ||
     !parsedPackagingId.success ||
-    !parsedQuantity.success
+    !parsedQuantity.success ||
+    !parsedLineTotal.success ||
+    !parsedVariantId.success
   ) {
     return { success: false, error: "Données invalides." };
   }
 
-  const barId = session.profile.bar_id;
-  const slate = await getOpenSlate(parsedSlateId.data, barId);
+  const supabase = await createClient();
 
-  if (!slate) {
-    return { success: false, error: "Ardoise introuvable ou clôturée." };
+  const { data, error } = await supabase.rpc("add_slate_line", {
+    p_slate_id: parsedSlateId.data,
+    p_product_packaging_id: parsedPackagingId.data,
+    p_quantity: parsedQuantity.data,
+    p_line_total: parsedLineTotal.data ?? null,
+    p_product_variant_id: parsedVariantId.data,
+  });
+
+  if (error) {
+    return { success: false, error: mapDbError(error) };
+  }
+
+  const payload = parseLineMutationPayload(data);
+
+  if (!payload?.line) {
+    return { success: false, error: "Réponse serveur invalide." };
+  }
+
+  if (payload.kitchen_created) {
+    revalidateSlateListPaths({ kitchen: true });
+  }
+
+  return {
+    success: true,
+    line: mapRpcLineToItem(payload.line),
+    slateTotal: Number(payload.slate_total),
+    kitchenCreated: payload.kitchen_created,
+  };
+}
+
+export async function updateSlateLineLineTotal(
+  slateId: string,
+  lineId: string,
+  lineTotal: number | null,
+): Promise<SlateLineMutationResult> {
+  await requireBarSession();
+
+  const parsedSlateId = slateIdSchema.safeParse(slateId);
+  const parsedLineId = slateLineIdSchema.safeParse(lineId);
+  const parsedLineTotal =
+    lineTotal === null
+      ? { success: true as const, data: null }
+      : lineLineTotalSchema.safeParse(lineTotal);
+
+  if (
+    !parsedSlateId.success ||
+    !parsedLineId.success ||
+    !parsedLineTotal.success
+  ) {
+    return { success: false, error: "Données invalides." };
   }
 
   const supabase = await createClient();
 
-  const { data: packaging } = await supabase
-    .from("product_packagings")
-    .select("id, product_id, packaging_type_id, quantity, optional_price, actif")
-    .eq("id", parsedPackagingId.data)
-    .eq("bar_id", barId)
-    .eq("actif", true)
-    .maybeSingle();
-
-  if (!packaging) {
-    return { success: false, error: "Conditionnement introuvable." };
-  }
-
-  const { data: product } = await supabase
-    .from("products")
-    .select("id, name, unit_price, actif, is_kitchen_item")
-    .eq("id", packaging.product_id)
-    .eq("bar_id", barId)
-    .eq("actif", true)
-    .maybeSingle();
-
-  if (!product) {
-    return { success: false, error: "Produit non vendable." };
-  }
-
-  const { data: packagingType } = await supabase
-    .from("packaging_types")
-    .select("name")
-    .eq("id", packaging.packaging_type_id)
-    .eq("bar_id", barId)
-    .eq("actif", true)
-    .maybeSingle();
-
-  if (!packagingType) {
-    return { success: false, error: "Type de conditionnement introuvable." };
-  }
-
-  const unitPrice = computePackagingPrice(
-    Number(product.unit_price),
-    Number(packaging.quantity),
-    packaging.optional_price === null ? null : Number(packaging.optional_price),
-  );
-
-  const { data: existingLine } = await supabase
-    .from("slate_lines")
-    .select("id, quantity, unit_price")
-    .eq("slate_id", parsedSlateId.data)
-    .eq("bar_id", barId)
-    .eq("product_packaging_id", parsedPackagingId.data)
-    .maybeSingle();
-
-  let slateLineId: string;
-
-  if (existingLine) {
-    const nextQuantity = existingLine.quantity + parsedQuantity.data;
-    const lineTotal = Number(existingLine.unit_price) * nextQuantity;
-
-    const { error } = await supabase
-      .from("slate_lines")
-      .update({
-        quantity: nextQuantity,
-        line_total: lineTotal,
-      })
-      .eq("id", existingLine.id)
-      .eq("bar_id", barId);
-
-    if (error) {
-      return { success: false, error: "Impossible de mettre à jour la ligne." };
-    }
-
-    slateLineId = existingLine.id;
-  } else {
-    const lineTotal = unitPrice * parsedQuantity.data;
-
-    const { data: insertedLine, error } = await supabase
-      .from("slate_lines")
-      .insert({
-        bar_id: barId,
-        slate_id: parsedSlateId.data,
-        product_id: product.id,
-        product_packaging_id: packaging.id,
-        product_name: product.name,
-        packaging_name: packagingType.name,
-        quantity: parsedQuantity.data,
-        unit_price: unitPrice,
-        line_total: lineTotal,
-      })
-      .select("id")
-      .single();
-
-    if (error || !insertedLine) {
-      return { success: false, error: "Impossible d'ajouter la consommation." };
-    }
-
-    slateLineId = insertedLine.id;
-  }
-
-  if (product.is_kitchen_item) {
-    await createKitchenItemForLine({
-      barId,
-      slate,
-      slateLineId,
-      productName: product.name,
-      packagingName: packagingType.name,
-      quantity: parsedQuantity.data,
-    });
-  }
-
-  await recalculateSlateTotal(parsedSlateId.data, barId);
-  revalidateSlateDetailPaths(parsedSlateId.data, {
-    kitchen: product.is_kitchen_item,
+  const { data, error } = await supabase.rpc("update_slate_line_line_total", {
+    p_slate_id: parsedSlateId.data,
+    p_line_id: parsedLineId.data,
+    p_line_total: parsedLineTotal.data,
   });
-  return { success: true };
+
+  if (error) {
+    return { success: false, error: mapDbError(error) };
+  }
+
+  const payload = parseLineMutationPayload(data);
+
+  if (!payload?.line) {
+    return { success: false, error: "Réponse serveur invalide." };
+  }
+
+  return {
+    success: true,
+    line: mapRpcLineToItem(payload.line),
+    slateTotal: Number(payload.slate_total),
+  };
 }
 
 export async function updateSlateLineQuantity(
   slateId: string,
   lineId: string,
   quantity: number,
-): Promise<SlateActionResult> {
-  const session = await requireBarSession();
+): Promise<SlateLineMutationResult> {
+  await requireBarSession();
 
   const parsedSlateId = slateIdSchema.safeParse(slateId);
   const parsedLineId = slateLineIdSchema.safeParse(lineId);
@@ -405,84 +370,41 @@ export async function updateSlateLineQuantity(
     return { success: false, error: "Données invalides." };
   }
 
-  const barId = session.profile.bar_id;
-  const slate = await getOpenSlate(parsedSlateId.data, barId);
-
-  if (!slate) {
-    return { success: false, error: "Ardoise introuvable ou clôturée." };
-  }
-
   const supabase = await createClient();
 
-  const { data: line } = await supabase
-    .from("slate_lines")
-    .select(
-      "id, quantity, unit_price, product_id, product_name, packaging_name",
-    )
-    .eq("id", parsedLineId.data)
-    .eq("slate_id", parsedSlateId.data)
-    .eq("bar_id", barId)
-    .maybeSingle();
-
-  if (!line) {
-    return { success: false, error: "Ligne introuvable." };
-  }
-
-  const previousQuantity = line.quantity;
-
-  if (previousQuantity === parsedQuantity.data) {
-    return { success: true };
-  }
-
-  const lineTotal = Number(line.unit_price) * parsedQuantity.data;
-
-  const { error } = await supabase
-    .from("slate_lines")
-    .update({
-      quantity: parsedQuantity.data,
-      line_total: lineTotal,
-    })
-    .eq("id", parsedLineId.data)
-    .eq("slate_id", parsedSlateId.data)
-    .eq("bar_id", barId);
+  const { data, error } = await supabase.rpc("update_slate_line_quantity", {
+    p_slate_id: parsedSlateId.data,
+    p_line_id: parsedLineId.data,
+    p_quantity: parsedQuantity.data,
+  });
 
   if (error) {
-    return { success: false, error: "Impossible de modifier la quantité." };
+    return { success: false, error: mapDbError(error) };
   }
 
-  let kitchenUpdated = false;
+  const payload = parseLineMutationPayload(data);
 
-  if (parsedQuantity.data > previousQuantity) {
-    const { data: product } = await supabase
-      .from("products")
-      .select("is_kitchen_item")
-      .eq("id", line.product_id)
-      .eq("bar_id", barId)
-      .maybeSingle();
-
-    if (product?.is_kitchen_item) {
-      kitchenUpdated = true;
-      await createKitchenItemForLine({
-        barId,
-        slate,
-        slateLineId: line.id,
-        productName: line.product_name,
-        packagingName: line.packaging_name,
-        quantity: parsedQuantity.data - previousQuantity,
-      });
-    }
+  if (!payload?.line) {
+    return { success: false, error: "Réponse serveur invalide." };
   }
 
-  await recalculateSlateTotal(parsedSlateId.data, barId);
-  revalidateSlateDetailPaths(parsedSlateId.data, { kitchen: kitchenUpdated });
-  return { success: true };
+  if (payload.kitchen_created) {
+    revalidateSlateListPaths({ kitchen: true });
+  }
+
+  return {
+    success: true,
+    line: mapRpcLineToItem(payload.line),
+    slateTotal: Number(payload.slate_total),
+    kitchenCreated: payload.kitchen_created,
+  };
 }
 
 export async function removeSlateLine(
   slateId: string,
   lineId: string,
-): Promise<SlateActionResult> {
-  const session = await requireBarSession();
+): Promise<SlateLineMutationResult> {
+  await requireBarSession();
 
   const parsedSlateId = slateIdSchema.safeParse(slateId);
   const parsedLineId = slateLineIdSchema.safeParse(lineId);
@@ -491,29 +413,28 @@ export async function removeSlateLine(
     return { success: false, error: "Données invalides." };
   }
 
-  const barId = session.profile.bar_id;
-  const slate = await getOpenSlate(parsedSlateId.data, barId);
-
-  if (!slate) {
-    return { success: false, error: "Ardoise introuvable ou clôturée." };
-  }
-
   const supabase = await createClient();
 
-  const { error } = await supabase
-    .from("slate_lines")
-    .delete()
-    .eq("id", parsedLineId.data)
-    .eq("slate_id", parsedSlateId.data)
-    .eq("bar_id", barId);
+  const { data, error } = await supabase.rpc("delete_slate_line", {
+    p_slate_id: parsedSlateId.data,
+    p_line_id: parsedLineId.data,
+  });
 
   if (error) {
-    return { success: false, error: "Impossible de supprimer la ligne." };
+    return { success: false, error: mapDbError(error) };
   }
 
-  await recalculateSlateTotal(parsedSlateId.data, barId);
-  revalidateSlateDetailPaths(parsedSlateId.data);
-  return { success: true };
+  const payload = parseLineMutationPayload(data);
+
+  if (!payload?.deleted_line_id) {
+    return { success: false, error: "Réponse serveur invalide." };
+  }
+
+  return {
+    success: true,
+    deletedLineId: payload.deleted_line_id,
+    slateTotal: Number(payload.slate_total),
+  };
 }
 
 export async function cancelSlate(slateId: string): Promise<SlateActionResult> {
