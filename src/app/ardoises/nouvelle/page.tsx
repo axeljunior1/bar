@@ -1,10 +1,5 @@
-import { PlaceholderPage } from "@/components/layout/PlaceholderPage";
+import { redirect } from "next/navigation";
 
-export default function NouvelleArdoisePage() {
-  return (
-    <PlaceholderPage
-      title="Nouvelle ardoise"
-      message="Création d'ardoise — prochaine étape de développement."
-    />
-  );
+export default function LegacyNewSlatePage() {
+  redirect("/ardoises/new");
 }

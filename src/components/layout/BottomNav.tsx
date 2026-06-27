@@ -15,7 +15,8 @@ type NavItem = {
 const navItems: NavItem[] = [
   { href: "/", label: "Ardoises", icon: "📋" },
   { href: "/produits", label: "Produits", icon: "🍻", ownerOnly: true },
-  { href: "/historique", label: "Historique", icon: "🧾" },
+  { href: "/cuisine", label: "Cuisine", icon: "🍳" },
+  { href: "/ventes", label: "Ventes", icon: "🧾" },
   { href: "/parametres", label: "Réglages", icon: "⚙️", ownerOnly: true },
 ];
 

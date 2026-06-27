@@ -57,6 +57,17 @@ export function CreateProductForm({ categories }: CreateProductFormProps) {
         disabled={pending}
       />
 
+      <Select
+        label="À préparer en cuisine ?"
+        name="isKitchenItem"
+        options={[
+          { value: "false", label: "Non" },
+          { value: "on", label: "Oui" },
+        ]}
+        defaultValue="false"
+        disabled={pending}
+      />
+
       {!categories.length ? (
         <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Créez d&apos;abord une catégorie dans les réglages.

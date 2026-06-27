@@ -1,10 +1,13 @@
 import { z } from "zod";
 
+import { formatNameInput } from "@/lib/utils/text";
+
 export const productNameSchema = z
   .string()
   .trim()
   .min(1, "Le nom est requis.")
-  .max(100, "100 caractères maximum.");
+  .max(100, "100 caractères maximum.")
+  .transform(formatNameInput);
 
 export const productIdSchema = z.string().uuid("Produit invalide.");
 
@@ -41,6 +44,11 @@ export const optionalPriceSchema = z.preprocess(
 );
 
 export const productActiveSchema = z.preprocess(
+  (value) => value === true || value === "true" || value === "on",
+  z.boolean(),
+);
+
+export const productKitchenSchema = z.preprocess(
   (value) => value === true || value === "true" || value === "on",
   z.boolean(),
 );

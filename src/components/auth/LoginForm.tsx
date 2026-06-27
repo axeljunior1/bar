@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { signInWithPassword } from "@/lib/actions/auth";
@@ -36,6 +37,7 @@ export function LoginForm() {
           name="email"
           type="email"
           autoComplete="email"
+          capitalize={false}
           required
         />
         <Input
@@ -43,8 +45,17 @@ export function LoginForm() {
           name="password"
           type="password"
           autoComplete="current-password"
+          capitalize={false}
           required
         />
+        <div className="text-right">
+          <Link
+            href="/login/mot-de-passe-oublie"
+            className="text-sm font-medium text-brand-600"
+          >
+            Mot de passe oublié ?
+          </Link>
+        </div>
       </div>
 
       {state.error ? (

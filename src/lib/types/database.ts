@@ -1,5 +1,6 @@
 export type UserRole = "owner" | "employee";
 export type SlateStatus = "open" | "paid" | "cancelled";
+export type BarStatus = "active" | "suspended";
 
 export type Json =
   | string
@@ -16,6 +17,7 @@ export interface Database {
         Row: {
           id: string;
           name: string;
+          status: BarStatus;
           actif: boolean;
           created_at: string;
           updated_at: string;
@@ -23,6 +25,7 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
+          status?: BarStatus;
           actif?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -30,9 +33,25 @@ export interface Database {
         Update: {
           id?: string;
           name?: string;
+          status?: BarStatus;
           actif?: boolean;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      super_admins: {
+        Row: {
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -163,6 +182,7 @@ export interface Database {
           category_id: string;
           name: string;
           unit_price: number;
+          is_kitchen_item: boolean;
           actif: boolean;
           created_at: string;
           updated_at: string;
@@ -173,6 +193,7 @@ export interface Database {
           category_id: string;
           name: string;
           unit_price: number;
+          is_kitchen_item?: boolean;
           actif?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -183,6 +204,7 @@ export interface Database {
           category_id?: string;
           name?: string;
           unit_price?: number;
+          is_kitchen_item?: boolean;
           actif?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -230,6 +252,7 @@ export interface Database {
           id: string;
           bar_id: string;
           client_name: string;
+          location: string | null;
           note: string | null;
           status: SlateStatus;
           total: number;
@@ -242,6 +265,7 @@ export interface Database {
           id?: string;
           bar_id: string;
           client_name: string;
+          location?: string | null;
           note?: string | null;
           status?: SlateStatus;
           total?: number;
@@ -254,6 +278,7 @@ export interface Database {
           id?: string;
           bar_id?: string;
           client_name?: string;
+          location?: string | null;
           note?: string | null;
           status?: SlateStatus;
           total?: number;
@@ -261,6 +286,54 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           closed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      kitchen_items: {
+        Row: {
+          id: string;
+          bar_id: string;
+          slate_id: string;
+          slate_line_id: string;
+          client_name_snapshot: string;
+          location_snapshot: string | null;
+          note_snapshot: string | null;
+          product_name_snapshot: string;
+          packaging_name_snapshot: string | null;
+          quantity: number;
+          status: string;
+          created_at: string;
+          served_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          bar_id: string;
+          slate_id: string;
+          slate_line_id: string;
+          client_name_snapshot: string;
+          location_snapshot?: string | null;
+          note_snapshot?: string | null;
+          product_name_snapshot: string;
+          packaging_name_snapshot?: string | null;
+          quantity: number;
+          status?: string;
+          created_at?: string;
+          served_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          bar_id?: string;
+          slate_id?: string;
+          slate_line_id?: string;
+          client_name_snapshot?: string;
+          location_snapshot?: string | null;
+          note_snapshot?: string | null;
+          product_name_snapshot?: string;
+          packaging_name_snapshot?: string | null;
+          quantity?: number;
+          status?: string;
+          created_at?: string;
+          served_at?: string | null;
         };
         Relationships: [];
       };
@@ -393,6 +466,7 @@ export interface Database {
       get_user_bar_id: { Args: Record<string, never>; Returns: string };
       get_user_role: { Args: Record<string, never>; Returns: UserRole };
       is_owner: { Args: Record<string, never>; Returns: boolean };
+      is_super_admin: { Args: Record<string, never>; Returns: boolean };
       compute_packaging_price: {
         Args: {
           p_unit_price: number;
@@ -400,6 +474,14 @@ export interface Database {
           p_optional_price: number | null;
         };
         Returns: number;
+      };
+      checkout_slate: {
+        Args: {
+          p_slate_id: string;
+          p_payment_method_id: string;
+          p_created_by: string | null;
+        };
+        Returns: string;
       };
     };
     Enums: {

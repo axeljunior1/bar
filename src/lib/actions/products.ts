@@ -11,6 +11,7 @@ import {
   packagingIdSchema,
   packagingTypeIdSchema,
   productActiveSchema,
+  productKitchenSchema,
   productIdSchema,
   productNameSchema,
   quantitySchema,
@@ -128,6 +129,9 @@ export async function createProductAction(
   const parsedName = productNameSchema.safeParse(formData.get("name"));
   const parsedCategoryId = categoryIdSchema.safeParse(formData.get("categoryId"));
   const parsedUnitPrice = unitPriceSchema.safeParse(formData.get("unitPrice"));
+  const parsedKitchen = productKitchenSchema.safeParse(
+    formData.get("isKitchenItem"),
+  );
 
   if (!parsedName.success) {
     return { error: parsedName.error.issues[0]?.message ?? "Nom invalide." };
@@ -143,6 +147,10 @@ export async function createProductAction(
     return {
       error: parsedUnitPrice.error.issues[0]?.message ?? "Prix unitaire invalide.",
     };
+  }
+
+  if (!parsedKitchen.success) {
+    return { error: "Option cuisine invalide." };
   }
 
   const supabase = await createClient();
@@ -167,6 +175,7 @@ export async function createProductAction(
       category_id: parsedCategoryId.data,
       name: parsedName.data,
       unit_price: parsedUnitPrice.data,
+      is_kitchen_item: parsedKitchen.data,
       actif: true,
     })
     .select("id")
@@ -199,6 +208,7 @@ export async function updateProduct(
     categoryId: string;
     unitPrice: number;
     actif: boolean;
+    isKitchenItem: boolean;
   },
 ): Promise<ProductActionResult> {
   const auth = await requireOwnerAction();
@@ -211,6 +221,7 @@ export async function updateProduct(
   const parsedCategoryId = categoryIdSchema.safeParse(input.categoryId);
   const parsedUnitPrice = unitPriceSchema.safeParse(input.unitPrice);
   const parsedActif = productActiveSchema.safeParse(input.actif);
+  const parsedKitchen = productKitchenSchema.safeParse(input.isKitchenItem);
 
   if (!parsedId.success) {
     return { success: false, error: parsedId.error.issues[0]?.message };
@@ -230,6 +241,10 @@ export async function updateProduct(
 
   if (!parsedActif.success) {
     return { success: false, error: "Statut invalide." };
+  }
+
+  if (!parsedKitchen.success) {
+    return { success: false, error: "Option cuisine invalide." };
   }
 
   const barId = auth.session.profile.bar_id;
@@ -273,6 +288,7 @@ export async function updateProduct(
       category_id: parsedCategoryId.data,
       unit_price: parsedUnitPrice.data,
       actif: parsedActif.data,
+      is_kitchen_item: parsedKitchen.data,
     })
     .eq("id", parsedId.data)
     .eq("bar_id", barId);

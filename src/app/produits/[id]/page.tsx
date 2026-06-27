@@ -22,7 +22,7 @@ export default async function ProductDetailPage({
 
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, unit_price, actif, category_id")
+    .select("id, name, unit_price, actif, category_id, is_kitchen_item")
     .eq("id", id)
     .eq("bar_id", barId)
     .maybeSingle();
@@ -110,6 +110,7 @@ export default async function ProductDetailPage({
             categoryId: product.category_id,
             unitPrice: Number(product.unit_price),
             actif: product.actif,
+            isKitchenItem: product.is_kitchen_item,
           }}
           categories={categories ?? []}
         />

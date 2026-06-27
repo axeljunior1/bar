@@ -13,6 +13,7 @@ export type ProductListItem = {
   categoryName: string;
   unitPrice: number;
   packagingCount: number;
+  isKitchenItem: boolean;
 };
 
 type ProductListClientProps = {
@@ -54,10 +55,12 @@ export function ProductListClient({ products }: ProductListClientProps) {
       <Input
         label="Rechercher"
         name="search"
+        type="search"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Nom ou catégorie"
         autoComplete="off"
+        capitalize={false}
       />
 
       <p className="text-sm text-muted">
@@ -87,9 +90,16 @@ export function ProductListClient({ products }: ProductListClientProps) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-lg font-semibold">
-                      {product.name}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-lg font-semibold">
+                        {product.name}
+                      </p>
+                      {product.isKitchenItem ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                          Cuisine
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="text-sm text-muted">{product.categoryName}</p>
                     <p className="mt-1 text-sm text-muted">
                       {product.packagingCount} conditionnement

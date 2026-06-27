@@ -12,7 +12,7 @@ export default async function ProduitsPage() {
     await Promise.all([
       supabase
         .from("products")
-        .select("id, name, unit_price, category_id")
+        .select("id, name, unit_price, category_id, is_kitchen_item")
         .eq("bar_id", barId)
         .eq("actif", true)
         .order("name", { ascending: true }),
@@ -47,6 +47,7 @@ export default async function ProduitsPage() {
       categoryName: categoryById.get(product.category_id) ?? "—",
       unitPrice: Number(product.unit_price),
       packagingCount: packagingCountByProduct.get(product.id) ?? 0,
+      isKitchenItem: product.is_kitchen_item,
     })) ?? [];
 
   return (

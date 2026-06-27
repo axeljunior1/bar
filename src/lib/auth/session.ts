@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/types/database";
+import type { BarStatus, Profile } from "@/lib/types/database";
 import {
   computePackagingPrice,
   formatCurrency,
@@ -10,6 +10,7 @@ export { computePackagingPrice, formatCurrency };
 export type SessionContext = {
   userId: string;
   profile: Profile;
+  barStatus: BarStatus;
 };
 
 export async function getSessionContext(): Promise<SessionContext | null> {
@@ -35,7 +36,17 @@ export async function getSessionContext(): Promise<SessionContext | null> {
     return null;
   }
 
-  return { userId: user.id, profile };
+  const { data: bar } = await supabase
+    .from("bars")
+    .select("status")
+    .eq("id", profile.bar_id)
+    .maybeSingle();
+
+  return {
+    userId: user.id,
+    profile,
+    barStatus: bar?.status ?? "active",
+  };
 }
 
 export function isOwner(profile: Profile): boolean {

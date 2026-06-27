@@ -20,6 +20,7 @@ type EditProductFormProps = {
     categoryId: string;
     unitPrice: number;
     actif: boolean;
+    isKitchenItem: boolean;
   };
   categories: CategoryOption[];
 };
@@ -29,6 +30,9 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
   const [name, setName] = useState(product.name);
   const [categoryId, setCategoryId] = useState(product.categoryId);
   const [unitPrice, setUnitPrice] = useState(String(product.unitPrice));
+  const [isKitchenItem, setIsKitchenItem] = useState(
+    product.isKitchenItem ? "on" : "false",
+  );
   const [error, setError] = useState<string | null>(null);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -42,6 +46,7 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
         categoryId,
         unitPrice: Number(unitPrice),
         actif: product.actif,
+        isKitchenItem: isKitchenItem === "on",
       });
 
       if (!result.success) {
@@ -105,6 +110,18 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
           value={unitPrice}
           onChange={(event) => setUnitPrice(event.target.value)}
           required
+          disabled={isPending || !product.actif}
+        />
+
+        <Select
+          label="À préparer en cuisine ?"
+          name="isKitchenItem"
+          value={isKitchenItem}
+          onChange={(event) => setIsKitchenItem(event.target.value)}
+          options={[
+            { value: "false", label: "Non" },
+            { value: "on", label: "Oui" },
+          ]}
           disabled={isPending || !product.actif}
         />
 
