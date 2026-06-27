@@ -1,11 +1,15 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
 import type { ForgotPasswordState } from "@/lib/auth/forgot-password-state";
+import {
+  getAppOrigin,
+  getPasswordResetRedirectUrl,
+  isLocalhostOrigin,
+} from "@/lib/site-url";
 import {
   authEmailSchema,
   confirmPasswordSchema,
@@ -16,32 +20,6 @@ export type ActionResult = {
   error?: string;
   message?: string;
 };
-
-function getSiteOrigin(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
-  }
-
-  return "http://localhost:3000";
-}
-
-async function getRequestOrigin(): Promise<string> {
-  const headersList = await headers();
-  const origin = headersList.get("origin");
-
-  if (origin) {
-    return origin.replace(/\/$/, "");
-  }
-
-  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
-  const protocol = headersList.get("x-forwarded-proto") ?? "http";
-
-  if (host) {
-    return `${protocol}://${host}`;
-  }
-
-  return getSiteOrigin();
-}
 
 export async function signInWithPassword(
   email: string,
@@ -78,10 +56,34 @@ export async function requestPasswordReset(
   }
 
   const supabase = await createClient();
-  const origin = await getRequestOrigin();
+
+  let origin: string;
+
+  try {
+    origin = await getAppOrigin();
+  } catch {
+    return {
+      error:
+        "Configuration manquante : ajoutez NEXT_PUBLIC_SITE_URL sur Netlify (ex. https://votre-app.netlify.app).",
+      message: null,
+      email: parsedEmail.data,
+    };
+  }
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    isLocalhostOrigin(origin)
+  ) {
+    return {
+      error:
+        "Configuration incorrecte : NEXT_PUBLIC_SITE_URL ne doit pas pointer vers localhost en production.",
+      message: null,
+      email: parsedEmail.data,
+    };
+  }
 
   const { error } = await supabase.auth.resetPasswordForEmail(parsedEmail.data, {
-    redirectTo: `${origin}/auth/callback?next=/login/nouveau-mot-de-passe`,
+    redirectTo: getPasswordResetRedirectUrl(origin),
   });
 
   if (error) {
