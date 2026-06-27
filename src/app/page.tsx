@@ -1,65 +1,72 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+import { AppShell } from "@/components/layout/AppShell";
+import { Button } from "@/components/ui/Button";
+import { createClient } from "@/lib/supabase/server";
+import { getSessionContext } from "@/lib/auth/session";
+import { formatCurrency } from "@/lib/auth/session";
+
+export default async function HomePage() {
+  const session = await getSessionContext();
+  const supabase = await createClient();
+
+  const { data: bar } = await supabase
+    .from("bars")
+    .select("name")
+    .single();
+
+  const { data: openSlates } = await supabase
+    .from("slates")
+    .select("id, client_name, total, note")
+    .eq("status", "open")
+    .order("updated_at", { ascending: false });
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <AppShell title="Ardoises" subtitle={bar?.name ?? session?.profile.full_name ?? undefined}>
+      <div className="flex flex-col gap-4">
+        <Link href="/ardoises/nouvelle">
+          <Button>Nouvelle ardoise</Button>
+        </Link>
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+            Ouvertes ({openSlates?.length ?? 0})
+          </h2>
+
+          {!openSlates?.length ? (
+            <div className="rounded-3xl border border-dashed border-border bg-white px-4 py-10 text-center">
+              <p className="text-muted">Aucune ardoise ouverte</p>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {openSlates.map((slate) => (
+                <li key={slate.id}>
+                  <Link
+                    href={`/ardoises/${slate.id}`}
+                    className="block rounded-3xl border border-border bg-white p-4 active:bg-surface-muted"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-semibold">
+                          {slate.client_name}
+                        </p>
+                        {slate.note ? (
+                          <p className="truncate text-sm text-muted">
+                            {slate.note}
+                          </p>
+                        ) : null}
+                      </div>
+                      <p className="text-lg font-bold text-brand-700">
+                        {formatCurrency(Number(slate.total))}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </AppShell>
   );
 }
