@@ -17,7 +17,7 @@ export default async function CuisinePage() {
   ]);
 
   return (
-    <AppShell title="Cuisine">
+    <AppShell session={session} title="Cuisine">
       <p className="mb-4 text-sm text-muted">
         {pendingItems.length} commande{pendingItems.length > 1 ? "s" : ""} en
         attente

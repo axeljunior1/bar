@@ -1,20 +1,20 @@
 import { BottomNav } from "@/components/layout/BottomNav";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { getSessionContext, isOwner } from "@/lib/auth/session";
+import { isOwner, type SessionContext } from "@/lib/auth/session";
 
 type AppShellProps = {
+  session: SessionContext;
   title: string;
   subtitle?: string;
   children: React.ReactNode;
 };
 
-export async function AppShell({ title, subtitle, children }: AppShellProps) {
-  const session = await getSessionContext();
-
-  if (!session) {
-    return null;
-  }
-
+export function AppShell({
+  session,
+  title,
+  subtitle,
+  children,
+}: AppShellProps) {
   return (
     <div className="mx-auto flex min-h-full w-full max-w-lg flex-col bg-background">
       <AppHeader title={title} subtitle={subtitle} />

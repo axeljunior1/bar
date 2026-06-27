@@ -4,9 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import type { Database } from "@/lib/types/database";
 
-async function checkIsSuperAdmin(
-  supabase: ReturnType<typeof createServerClient<Database>>,
-): Promise<boolean> {
+type SupabaseClient = ReturnType<typeof createServerClient<Database>>;
+
+async function checkIsSuperAdmin(supabase: SupabaseClient): Promise<boolean> {
   const { data } = await supabase.rpc("is_super_admin");
   return Boolean(data);
 }
@@ -59,10 +59,18 @@ export async function updateSession(request: NextRequest) {
       .eq("actif", true)
       .maybeSingle();
 
-    const isSuperAdmin = await checkIsSuperAdmin(supabase);
+    let isSuperAdmin: boolean | null = null;
+
+    async function getIsSuperAdmin(): Promise<boolean> {
+      if (isSuperAdmin === null) {
+        isSuperAdmin = await checkIsSuperAdmin(supabase);
+      }
+
+      return isSuperAdmin;
+    }
 
     if (!profile) {
-      if (isSuperAdmin) {
+      if (await getIsSuperAdmin()) {
         if (!isSuperAdminRoute && !isPublicRoute && !isSuspendedRoute) {
           const redirectUrl = request.nextUrl.clone();
           redirectUrl.pathname = "/super-admin";
@@ -74,7 +82,6 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       }
     } else if (
-      !isSuperAdmin &&
       !isSuspendedRoute &&
       !isSuperAdminRoute &&
       !isPublicRoute
@@ -85,7 +92,7 @@ export async function updateSession(request: NextRequest) {
         .eq("id", profile.bar_id)
         .maybeSingle();
 
-      if (bar?.status === "suspended") {
+      if (bar?.status === "suspended" && !(await getIsSuperAdmin())) {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/suspended";
         return NextResponse.redirect(redirectUrl);
@@ -94,7 +101,8 @@ export async function updateSession(request: NextRequest) {
 
     if (isAuthRoute && !isPasswordResetRoute) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = isSuperAdmin && !profile ? "/super-admin" : "/";
+      redirectUrl.pathname =
+        !profile && (await getIsSuperAdmin()) ? "/super-admin" : "/";
       return NextResponse.redirect(redirectUrl);
     }
   }

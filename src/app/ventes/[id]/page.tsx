@@ -22,7 +22,7 @@ export default async function VenteDetailPage({ params }: VenteDetailPageProps) 
   }
 
   return (
-    <AppShell title="Détail vente" subtitle={sale.clientName}>
+    <AppShell session={session} title="Détail vente" subtitle={sale.clientName}>
       <BackLink href="/ventes" label="Ventes" />
 
       <div className="mb-6 rounded-3xl border border-border bg-white p-4">

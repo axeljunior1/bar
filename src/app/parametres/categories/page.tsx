@@ -16,7 +16,7 @@ export default async function CategoriesPage() {
     .order("sort_order", { ascending: true });
 
   return (
-    <AppShell title="Catégories">
+    <AppShell session={session} title="Catégories">
       <BackLink href="/parametres" label="Réglages" />
       <SettingsListClient entity="categories" items={categories ?? []} />
     </AppShell>

@@ -83,6 +83,7 @@ export default async function ProductDetailPage({
 
   return (
     <AppShell
+      session={session}
       title={product.name}
       subtitle={category?.name ?? undefined}
     >

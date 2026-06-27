@@ -30,6 +30,7 @@ export default async function HomePage() {
 
   return (
     <AppShell
+      session={session}
       title="Ardoises"
       subtitle={bar?.name ?? session.profile.full_name ?? undefined}
     >

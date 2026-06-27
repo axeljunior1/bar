@@ -25,12 +25,22 @@ export default async function SlateDetailPage({ params }: SlateDetailPageProps) 
   const barId = session.profile.bar_id;
   const supabase = await createClient();
 
-  const { data: slate } = await supabase
-    .from("slates")
-    .select("id, client_name, location, note, status, total, created_at")
-    .eq("id", id)
-    .eq("bar_id", barId)
-    .maybeSingle();
+  const [
+    { data: slate },
+    { categories, products },
+    lines,
+    paymentMethods,
+  ] = await Promise.all([
+    supabase
+      .from("slates")
+      .select("id, client_name, location, note, status, total, created_at")
+      .eq("id", id)
+      .eq("bar_id", barId)
+      .maybeSingle(),
+    loadSellableCatalog(barId),
+    loadSlateLines(id, barId),
+    loadPaymentMethods(barId),
+  ]);
 
   if (!slate) {
     notFound();
@@ -38,14 +48,9 @@ export default async function SlateDetailPage({ params }: SlateDetailPageProps) 
 
   const isOpen = slate.status === "open";
 
-  const [{ categories, products }, lines, paymentMethods] = await Promise.all([
-    loadSellableCatalog(barId),
-    loadSlateLines(id, barId),
-    loadPaymentMethods(barId),
-  ]);
-
   return (
     <AppShell
+      session={session}
       title={slate.client_name}
       subtitle={[slate.location, slate.note].filter(Boolean).join(" · ") || undefined}
     >

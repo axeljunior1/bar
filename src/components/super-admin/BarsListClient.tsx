@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
@@ -22,7 +21,6 @@ type PendingAction = {
 };
 
 export function BarsListClient({ bars }: BarsListClientProps) {
-  const router = useRouter();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -45,7 +43,6 @@ export function BarsListClient({ bars }: BarsListClientProps) {
 
       setError(null);
       setPendingAction(null);
-      router.refresh();
     });
   }
 

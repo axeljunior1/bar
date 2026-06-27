@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { createClient } from "@/lib/supabase/server";
 import type { BarStatus, Profile } from "@/lib/types/database";
 import {
@@ -13,7 +15,7 @@ export type SessionContext = {
   barStatus: BarStatus;
 };
 
-export async function getSessionContext(): Promise<SessionContext | null> {
+export const getSessionContext = cache(async (): Promise<SessionContext | null> => {
   const supabase = await createClient();
 
   const {
@@ -47,7 +49,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
     profile,
     barStatus: bar?.status ?? "active",
   };
-}
+});
 
 export function isOwner(profile: Profile): boolean {
   return profile.role === "owner";

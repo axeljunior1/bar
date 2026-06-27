@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { addSlateLine } from "@/lib/actions/slates";
@@ -27,7 +26,6 @@ export function SlateAddConsumption({
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   const filteredProducts = products.filter(
     (product) => product.categoryId === selectedCategoryId,
@@ -43,7 +41,6 @@ export function SlateAddConsumption({
       }
 
       setError(null);
-      router.refresh();
     });
   }
 

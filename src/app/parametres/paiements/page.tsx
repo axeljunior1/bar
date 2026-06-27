@@ -16,7 +16,7 @@ export default async function PaiementsPage() {
     .order("sort_order", { ascending: true });
 
   return (
-    <AppShell title="Moyens de paiement">
+    <AppShell session={session} title="Moyens de paiement">
       <BackLink href="/parametres" label="Réglages" />
       <SettingsListClient entity="payment_methods" items={paymentMethods ?? []} />
     </AppShell>

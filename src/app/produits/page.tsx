@@ -51,7 +51,7 @@ export default async function ProduitsPage() {
     })) ?? [];
 
   return (
-    <AppShell title="Produits">
+    <AppShell session={session} title="Produits">
       <ProductListClient products={productItems} />
     </AppShell>
   );

@@ -16,7 +16,7 @@ export default async function NewProductPage() {
     .order("sort_order", { ascending: true });
 
   return (
-    <AppShell title="Nouveau produit">
+    <AppShell session={session} title="Nouveau produit">
       <BackLink href="/produits" label="Produits" />
       <CreateProductForm categories={categories ?? []} />
     </AppShell>

@@ -55,7 +55,6 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
       }
 
       setError(null);
-      router.refresh();
     });
   }
 
@@ -71,7 +70,6 @@ export function EditProductForm({ product, categories }: EditProductFormProps) {
 
       setShowDeactivateConfirm(false);
       router.push("/produits");
-      router.refresh();
     });
   }
 

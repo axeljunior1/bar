@@ -54,7 +54,6 @@ export function SlateCheckoutModal({
 
       onClose();
       router.push("/");
-      router.refresh();
     });
   }
 

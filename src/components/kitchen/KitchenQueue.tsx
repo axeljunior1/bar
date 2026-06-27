@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { markKitchenItemServed } from "@/lib/actions/kitchen";
@@ -14,7 +13,6 @@ type KitchenQueueProps = {
 };
 
 export function KitchenQueue({ items }: KitchenQueueProps) {
-  const router = useRouter();
   const [pendingItem, setPendingItem] = useState<KitchenQueueItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -34,7 +32,6 @@ export function KitchenQueue({ items }: KitchenQueueProps) {
 
       setError(null);
       setPendingItem(null);
-      router.refresh();
     });
   }
 

@@ -31,11 +31,21 @@ function slateDetailPath(slateId: string) {
   return `/ardoises/${slateId}`;
 }
 
-function revalidateSlatePaths(slateId: string) {
+function revalidateSlateDetailPaths(
+  slateId: string,
+  options?: { kitchen?: boolean },
+) {
   revalidatePath("/");
   revalidatePath(slateDetailPath(slateId));
+
+  if (options?.kitchen) {
+    revalidatePath("/cuisine");
+  }
+}
+
+function revalidateSlateCheckoutPaths(slateId: string) {
+  revalidateSlateDetailPaths(slateId, { kitchen: true });
   revalidatePath("/ventes");
-  revalidatePath("/cuisine");
 }
 
 type OpenSlate = {
@@ -230,7 +240,7 @@ export async function updateSlateAction(
     return { error: "Impossible de mettre à jour l'ardoise." };
   }
 
-  revalidateSlatePaths(parsedSlateId.data);
+  revalidateSlateDetailPaths(parsedSlateId.data);
   return { error: null };
 }
 
@@ -370,7 +380,9 @@ export async function addSlateLine(
   }
 
   await recalculateSlateTotal(parsedSlateId.data, barId);
-  revalidateSlatePaths(parsedSlateId.data);
+  revalidateSlateDetailPaths(parsedSlateId.data, {
+    kitchen: product.is_kitchen_item,
+  });
   return { success: true };
 }
 
@@ -438,6 +450,8 @@ export async function updateSlateLineQuantity(
     return { success: false, error: "Impossible de modifier la quantité." };
   }
 
+  let kitchenUpdated = false;
+
   if (parsedQuantity.data > previousQuantity) {
     const { data: product } = await supabase
       .from("products")
@@ -447,6 +461,7 @@ export async function updateSlateLineQuantity(
       .maybeSingle();
 
     if (product?.is_kitchen_item) {
+      kitchenUpdated = true;
       await createKitchenItemForLine({
         barId,
         slate,
@@ -459,7 +474,7 @@ export async function updateSlateLineQuantity(
   }
 
   await recalculateSlateTotal(parsedSlateId.data, barId);
-  revalidateSlatePaths(parsedSlateId.data);
+  revalidateSlateDetailPaths(parsedSlateId.data, { kitchen: kitchenUpdated });
   return { success: true };
 }
 
@@ -497,7 +512,7 @@ export async function removeSlateLine(
   }
 
   await recalculateSlateTotal(parsedSlateId.data, barId);
-  revalidateSlatePaths(parsedSlateId.data);
+  revalidateSlateDetailPaths(parsedSlateId.data);
   return { success: true };
 }
 
@@ -533,7 +548,7 @@ export async function cancelSlate(slateId: string): Promise<SlateActionResult> {
   }
 
   await dismissPendingKitchenForSlate(parsedSlateId.data, barId);
-  revalidateSlatePaths(parsedSlateId.data);
+  revalidateSlateCheckoutPaths(parsedSlateId.data);
   return { success: true };
 }
 
@@ -574,6 +589,6 @@ export async function checkoutSlate(
   }
 
   await dismissPendingKitchenForSlate(parsedSlateId.data, barId);
-  revalidateSlatePaths(parsedSlateId.data);
+  revalidateSlateCheckoutPaths(parsedSlateId.data);
   return { success: true, saleId: saleId as string };
 }

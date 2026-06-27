@@ -16,7 +16,7 @@ export default async function ConditionnementsPage() {
     .order("sort_order", { ascending: true });
 
   return (
-    <AppShell title="Conditionnements">
+    <AppShell session={session} title="Conditionnements">
       <BackLink href="/parametres" label="Réglages" />
       <SettingsListClient entity="packaging_types" items={packagingTypes ?? []} />
     </AppShell>

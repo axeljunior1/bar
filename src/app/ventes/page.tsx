@@ -20,7 +20,7 @@ export default async function VentesPage({ searchParams }: VentesPageProps) {
   );
 
   return (
-    <AppShell title="Ventes">
+    <AppShell session={session} title="Ventes">
       <div className="flex flex-col gap-4">
         <SalesPeriodFilter activePeriod={period} />
         <SalesSummaryCard

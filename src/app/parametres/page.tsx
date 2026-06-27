@@ -11,10 +11,10 @@ const settingsLinks = [
 ];
 
 export default async function ParametresPage() {
-  await requireOwnerPage();
+  const session = await requireOwnerPage();
 
   return (
-    <AppShell title="Réglages">
+    <AppShell session={session} title="Réglages">
       <ul className="space-y-3">
         {settingsLinks.map((link) => (
           <li key={link.href}>

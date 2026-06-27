@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
@@ -29,7 +28,6 @@ export function SlateLinesList({
   const [pendingLine, setPendingLine] = useState<SlateLineItem | null>(null);
   const [updatingLineId, setUpdatingLineId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   function handleQuantityChange(line: SlateLineItem, nextQuantity: number) {
     if (nextQuantity < 1 || nextQuantity > MAX_LINE_QUANTITY) {
@@ -53,7 +51,6 @@ export function SlateLinesList({
       }
 
       setError(null);
-      router.refresh();
     });
   }
 
@@ -72,7 +69,6 @@ export function SlateLinesList({
 
       setError(null);
       setPendingLine(null);
-      router.refresh();
     });
   }
 

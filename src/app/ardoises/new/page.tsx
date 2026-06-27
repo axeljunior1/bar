@@ -4,10 +4,10 @@ import { CreateSlateForm } from "@/components/slates/CreateSlateForm";
 import { requireBarSession } from "@/lib/auth/require-bar-session";
 
 export default async function NewSlatePage() {
-  await requireBarSession();
+  const session = await requireBarSession();
 
   return (
-    <AppShell title="Nouvelle ardoise">
+    <AppShell session={session} title="Nouvelle ardoise">
       <BackLink href="/" label="Ardoises" />
       <CreateSlateForm />
     </AppShell>

@@ -45,7 +45,6 @@ export function SlateDetailActions({
 
       setShowCancelConfirm(false);
       router.push("/");
-      router.refresh();
     });
   }
 
